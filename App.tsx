@@ -1,118 +1,130 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import {useRef} from 'react';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import {
+  Dimensions,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
   View,
 } from 'react-native';
 
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import {Image} from 'react-native-reanimated/lib/typescript/Animated';
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+const defaultImageURI =
+  'https://images.pexels.com/photos/18175115/pexels-photo-18175115/free-photo-of-ojos.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1';
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+const secondImageURI =
+  'https://images.pexels.com/photos/10859633/pexels-photo-10859633.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1';
+
+const {width} = Dimensions.get('window');
+
+const height = 400;
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const scale = useSharedValue(1);
+  const focalX = useSharedValue(0);
+  const focalY = useSharedValue(0);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  const savedFocalX = useSharedValue(0);
+  const savedFocalY = useSharedValue(0);
+  const savedScale = useSharedValue(1);
+
+  const panGesture = Gesture.Pan()
+    .onUpdate(event => {
+      focalX.value = savedFocalX.value + -event.translationX / scale.value;
+      focalY.value = savedFocalY.value + -event.translationY / scale.value;
+    })
+    .onEnd(() => {
+      savedFocalX.value = focalX.value;
+      savedFocalY.value = focalY.value;
+    });
+
+  const tapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDelay(500)
+    .onStart(event => {
+      if (scale.value !== 1) {
+        scale.value = 1;
+        focalX.value = event.x;
+        focalY.value = event.y;
+        savedFocalX.value = focalX.value;
+        savedFocalY.value = focalY.value;
+        savedScale.value = 1;
+      } else {
+        scale.value = 3;
+        focalX.value = event.x;
+        focalY.value = event.y;
+        savedFocalX.value = focalX.value;
+        savedFocalY.value = focalY.value;
+        savedScale.value = 3;
+      }
+    });
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate(event => {
+      scale.value = clamp(event.scale * savedScale.value, 1, 3);
+
+      focalX.value = event.focalX;
+      focalY.value = event.focalY;
+    })
+    .onEnd(() => {
+      savedFocalX.value = focalX.value;
+      savedFocalY.value = focalY.value;
+      savedScale.value = clamp(scale.value, 1, 3);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {translateX: withSpring(focalX.value, {duration: 250})},
+        {translateY: withSpring(focalY.value, {duration: 250})},
+        {translateX: withSpring(-width / 2, {duration: 250})},
+        {translateY: withSpring(-height / 2, {duration: 250})},
+        {scale: withSpring(scale.value, {duration: 250})},
+        {translateX: withSpring(-focalX.value, {duration: 250})},
+        {translateY: withSpring(-focalY.value, {duration: 250})},
+        {translateX: withSpring(width / 2, {duration: 250})},
+        {translateY: withSpring(height / 2, {duration: 250})},
+      ],
+    };
+  });
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
+    <SafeAreaView style={{flex: 1}}>
+      <StatusBar barStyle="dark-content" />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
+        contentContainerStyle={{flex: 1, flexGrow: 1}}>
+        <GestureHandlerRootView style={{flex: 1}}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: '#080808',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+            <GestureDetector
+              gesture={Gesture.Race(pinchGesture, tapGesture, panGesture)}>
+              <Animated.Image
+                style={[{width, height, objectFit: 'cover'}, animatedStyle]}
+                source={{uri: secondImageURI}}
+              />
+            </GestureDetector>
+          </View>
+        </GestureHandlerRootView>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
