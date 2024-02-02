@@ -35,8 +35,6 @@ function App(): React.JSX.Element {
   const savedFocalY = useSharedValue(0);
   const savedScale = useSharedValue(1);
 
-  const initialX = useSharedValue(0);
-
   const pinchGesture = Gesture.Pinch()
     .onUpdate(event => {
       scale.value = clamp(event.scale * savedScale.value, 1, 3);
@@ -51,17 +49,25 @@ function App(): React.JSX.Element {
 
   const panGesture = Gesture.Pan()
     .maxPointers(1)
-    .onStart(event => {
-      initialX.value = event.x;
-      console.log(initialX.value);
-    })
     .onUpdate(event => {
       focalX.value = savedFocalX.value + -event.translationX / scale.value;
       focalY.value = savedFocalY.value + -event.translationY / scale.value;
     })
     .onEnd(() => {
-      focalX.value = clamp(focalX.value, 0, width * scale.value - width);
-      focalY.value = clamp(focalY.value, 0, height * scale.value - height);
+      if (focalX.value >= width) {
+        focalX.value = width;
+      }
+      if (focalX.value <= 0) {
+        focalX.value = 0;
+      }
+
+      if (focalY.value >= height) {
+        focalY.value = height;
+      }
+
+      if (focalY.value <= 0) {
+        focalY.value = 0;
+      }
 
       savedFocalX.value = focalX.value;
       savedFocalY.value = focalY.value;
